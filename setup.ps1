@@ -1,26 +1,16 @@
-﻿# =============================================================================
-#  install.ps1 — Мастер-скрипт установки WSL2 + Docker + Portainer
-#  Запускать в PowerShell от имени Администратора
-#
-#  Использование (одна команда):
-#    irm https://ВАШ_СЕРВЕР/install.ps1 | iex
-#
-#  Или с параметрами:
-#    & ([scriptblock]::Create((irm https://ВАШ_СЕРВЕР/install.ps1))) -MemoryPercent 60
-# =============================================================================
-#Requires -RunAsAdministrator
+﻿#Requires -RunAsAdministrator
 
 param(
-    [string]$WslDistro     = "Ubuntu",
-    [int]   $MemoryPercent = 50,
-    [int]   $CpuPercent    = 50,
-    [int]   $SwapPercent   = 25,
-    [string]$TaskName      = "WSL2-Docker-Autostart",
-    [string]$DockerScriptUrl = "https://raw.githubusercontent.com/gidragir/wsl-docker-setup/refs/heads/main/docker-install.sh"
+    [string]$WslDistro       = "Ubuntu",
+    [int]   $MemoryPercent   = 50,
+    [int]   $CpuPercent      = 50,
+    [int]   $SwapPercent     = 25,
+    [string]$TaskName        = "WSL2-Docker-Autostart",
+    [string]$DockerScriptUrl = "https://raw.githubusercontent.com/gidragir/wsl-docker-setup/main/docker-install.sh"
 )
 
 $ErrorActionPreference = "Stop"
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+[Console]::OutputEncoding = [System.Text.Encoding]::Unicode
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 function Write-Header { param($t)
@@ -41,7 +31,7 @@ function Pause-ForReboot {
     Write-Host "  Причина: $Reason" -ForegroundColor Yellow
     Write-Host ""
     Write-Host "  После перезагрузки запустите скрипт снова:" -ForegroundColor White
-    Write-Host "  irm https://raw.githubusercontent.com/gidragir/wsl-docker-setup/refs/heads/main/install.ps1 | iex" -ForegroundColor Cyan
+    Write-Host "  & ([scriptblock]::Create((irm https://raw.githubusercontent.com/gidragir/wsl-docker-setup/main/install.ps1)))" -ForegroundColor Cyan
     Write-Host "  ══════════════════════════════════════════════" -ForegroundColor Yellow
     Write-Host ""
     $choice = Read-Host "  Перезагрузить сейчас? [Y/n]"
@@ -49,21 +39,6 @@ function Pause-ForReboot {
         Restart-Computer -Force
     }
     exit 0
-}
-
-# =============================================================================
-#  ШАГ 0: Проверка — уже ли установлено (идемпотентность)
-# =============================================================================
-
-function Get-InstallState {
-    return @{
-        WslInstalled    = [bool](Get-Command wsl -ErrorAction SilentlyContinue)
-        HyperVEnabled   = (Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-All -ErrorAction SilentlyContinue).State -eq 'Enabled'
-        WslFeatureEnabled = (Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux -ErrorAction SilentlyContinue).State -eq 'Enabled'
-        DistroInstalled = [bool](wsl --list --quiet 2>$null | Select-String $WslDistro)
-        DockerRunning   = [bool](wsl -d $WslDistro --exec docker info 2>$null)
-        PortainerExists = [bool](wsl -d $WslDistro --exec docker ps -a --format '{{.Names}}' 2>$null | Select-String 'portainer')
-    }
 }
 
 # =============================================================================
@@ -98,7 +73,7 @@ function Enable-WindowsFeatures {
 }
 
 # =============================================================================
-#  ШАГ 2: Права входа для Hyper-V (решает ошибку 0x80070569)
+#  ШАГ 2: Права входа для Hyper-V
 # =============================================================================
 
 function Set-HyperVLogonRights {
@@ -164,14 +139,10 @@ function Install-Wsl {
     Write-Step "Установка $WslDistro..."
     Write-Info "Это может занять 2-5 минут..."
 
-    # Устанавливаем без интерактивного ввода
-    # --root позволяет первый запуск без создания пользователя (сделаем сами)
     wsl --install -d $WslDistro --no-launch 2>&1 | ForEach-Object { Write-Info $_ }
 
-    # Даём время на распаковку
     Start-Sleep -Seconds 5
 
-    # Инициализируем дистрибутив с root-пользователем (без интерактива)
     wsl -d $WslDistro --user root --exec echo "init" 2>&1 | Out-Null
 
     $distros2 = wsl --list --quiet 2>&1
@@ -206,9 +177,6 @@ function Write-WslConfig {
     $swapPath        = "$env:USERPROFILE\wsl-swap.vhdx"
     $swapPathEscaped = $swapPath -replace '\\', '\\'
 
-    # Определяем версию WSL для совместимости ключей
-    $wslVersion = (wsl --version 2>&1 | Select-String "WSL version" | ForEach-Object { $_ -replace ".*:\s*", "" }).Trim()
-
     $config = @"
 # .wslconfig — настройки WSL2
 # Сгенерировано install.ps1
@@ -236,20 +204,15 @@ guiApplications=false
 function Install-DockerInWsl {
     Write-Step "Установка Docker Engine внутри WSL ($WslDistro)..."
 
-    # Скачиваем bash-скрипт внутри WSL и запускаем
     $cmd = "curl -fsSL '$DockerScriptUrl' -o /tmp/docker-install.sh && sudo bash /tmp/docker-install.sh"
 
-    Write-Info "Запуск: wsl -d $WslDistro --user root --exec bash -c ..."
-    Write-Info "Это займёт 2-4 минуты..."
-
+    Write-Info "Запуск скрипта внутри WSL..."
     wsl -d $WslDistro --user root --exec bash -c $cmd
 
     if ($LASTEXITCODE -eq 0) {
         Write-Ok "Docker установлен успешно"
     } else {
         Write-Warn "Скрипт Docker завершился с ошибкой (код: $LASTEXITCODE)"
-        Write-Info "Проверьте вывод выше или запустите вручную внутри WSL:"
-        Write-Info "  sudo bash /tmp/docker-install.sh"
     }
 }
 
@@ -260,7 +223,6 @@ function Install-DockerInWsl {
 function Install-Portainer {
     Write-Step "Установка Portainer CE (веб-интерфейс Docker)..."
 
-    # Проверяем — уже установлен?
     $exists = wsl -d $WslDistro --user root --exec bash -c `
         "docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q '^portainer$' && echo yes || echo no"
 
@@ -270,7 +232,6 @@ function Install-Portainer {
         return
     }
 
-    # Создаём volume и запускаем контейнер
     $portainerCmd = @"
 docker volume create portainer_data 2>/dev/null || true && \
 docker run -d \
@@ -288,12 +249,8 @@ docker run -d \
     if ($LASTEXITCODE -eq 0) {
         Write-Ok "Portainer CE установлен и запущен"
         Write-Ok "Веб-интерфейс: http://localhost:9000"
-        Write-Info "При первом входе создайте пароль администратора"
     } else {
-        Write-Warn "Не удалось установить Portainer. Docker может быть ещё не готов."
-        Write-Info "Установите вручную после запуска Docker:"
-        Write-Info "  docker volume create portainer_data"
-        Write-Info "  docker run -d --name portainer --restart=always -p 9000:9000 -v /var/run/docker.sock:/var/run/docker.sock -v portainer_data:/data portainer/portainer-ce:latest"
+        Write-Warn "Не удалось установить Portainer."
     }
 }
 
@@ -347,7 +304,6 @@ Log "=== Готово ==="
         -Description "Автозапуск WSL2 + Docker при старте Windows" | Out-Null
 
     Write-Ok "Задача '$TaskName' создана"
-    Write-Info "Лог: $scriptDir\autostart.log"
 }
 
 # =============================================================================
@@ -364,37 +320,6 @@ function Restart-Wsl {
     Start-ScheduledTask -TaskName $TaskName
     Start-Sleep -Seconds 8
     Write-Ok "Задача запущена"
-}
-
-# =============================================================================
-#  ИТОГ
-# =============================================================================
-
-function Show-Summary {
-    Write-Host ""
-    Write-Host "$('='*56)" -ForegroundColor Green
-    Write-Host "  УСТАНОВКА ЗАВЕРШЕНА УСПЕШНО" -ForegroundColor Green
-    Write-Host "$('='*56)" -ForegroundColor Green
-    Write-Host ""
-    Write-Host "  Что установлено:" -ForegroundColor White
-    Write-Host "    [+] WSL2 + $WslDistro" -ForegroundColor Gray
-    Write-Host "    [+] Docker Engine + Compose + Buildx" -ForegroundColor Gray
-    Write-Host "    [+] Portainer CE (веб-интерфейс)" -ForegroundColor Gray
-    Write-Host "    [+] Автозапуск при старте Windows" -ForegroundColor Gray
-    Write-Host "    [+] .wslconfig с лимитами ресурсов" -ForegroundColor Gray
-    Write-Host ""
-    Write-Host "  Доступ к Portainer:" -ForegroundColor White
-    Write-Host "    http://localhost:9000" -ForegroundColor Cyan
-    Write-Host "    (создайте пароль при первом входе)" -ForegroundColor Gray
-    Write-Host ""
-    Write-Host "  Управление:" -ForegroundColor White
-    Write-Host "    Лог автозапуска:" -ForegroundColor Gray
-    Write-Host "      Get-Content `"$env:PROGRAMDATA\WSL-Docker\autostart.log`"" -ForegroundColor Cyan
-    Write-Host "    Перезапуск WSL:" -ForegroundColor Gray
-    Write-Host "      wsl --shutdown" -ForegroundColor Cyan
-    Write-Host "    Docker внутри WSL:" -ForegroundColor Gray
-    Write-Host "      wsl -d $WslDistro" -ForegroundColor Cyan
-    Write-Host ""
 }
 
 # =============================================================================
@@ -433,4 +358,5 @@ New-AutostartTask
 Write-Header "ШАГ 8/8: ПРИМЕНЕНИЕ НАСТРОЕК"
 Restart-Wsl
 
-Show-Summary
+Write-Host ""
+Write-Host "УСТАНОВКА ЗАВЕРШЕНА" -ForegroundColor Green
