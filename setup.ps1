@@ -26,7 +26,7 @@ function Pause-ForReboot {
     Write-Host "  Причина: $Reason" -ForegroundColor Yellow
     Write-Host ""
     Write-Host "  После перезагрузки запустите скрипт снова:" -ForegroundColor White
-    Write-Host "  & ([scriptblock]::Create((irm https://raw.githubusercontent.com/gidragir/wsl-docker-setup/main/install.ps1)))" -ForegroundColor Cyan
+    Write-Host "  `$tmp = `"`$env:TEMP\setup.ps1`"; irm https://raw.githubusercontent.com/gidragir/wsl-docker-setup/refs/heads/main/setup.ps1 -OutFile `$tmp; & `$tmp" -ForegroundColor Cyan
     Write-Host "  ══════════════════════════════════════════════" -ForegroundColor Yellow
     Write-Host ""
     $choice = Read-Host "  Перезагрузить сейчас? [Y/n]"
@@ -75,8 +75,10 @@ function Enable-WindowsFeatures {
 function Set-HyperVLogonRights {
     Write-Step "Настройка прав входа для Hyper-V (NT VIRTUAL MACHINE\Virtual Machines)..."
 
-    $cfgFile = "$env:TEMP\secpol_wsl.inf"
-    $dbFile = "$env:TEMP\secpol_wsl.sdb"
+    # Используем C:\Windows\Temp вместо $env:TEMP — он всегда имеет нормальный путь
+    # без 8.3 сокращений (I3D21~1.BAL), которые ломают secedit
+    $cfgFile = "$env:SystemRoot\Temp\secpol_wsl.inf"
+    $dbFile  = "$env:SystemRoot\Temp\secpol_wsl.sdb"
     $targetSid = "*S-1-5-83-0"
 
     try {
