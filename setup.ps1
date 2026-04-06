@@ -16,7 +16,7 @@ param(
     [int]   $CpuPercent    = 50,
     [int]   $SwapPercent   = 25,
     [string]$TaskName      = "WSL2-Docker-Autostart",
-    [string]$DockerScriptUrl = "https://ВАШ_СЕРВЕР/docker-install.sh"
+    [string]$DockerScriptUrl = "https://raw.githubusercontent.com/gidragir/wsl-docker-setup/refs/heads/main/docker-install.sh"
 )
 
 $ErrorActionPreference = "Stop"
@@ -41,7 +41,7 @@ function Pause-ForReboot {
     Write-Host "  Причина: $Reason" -ForegroundColor Yellow
     Write-Host ""
     Write-Host "  После перезагрузки запустите скрипт снова:" -ForegroundColor White
-    Write-Host "  irm https://ВАШ_СЕРВЕР/install.ps1 | iex" -ForegroundColor Cyan
+    Write-Host "  irm https://raw.githubusercontent.com/gidragir/wsl-docker-setup/refs/heads/main/install.ps1 | iex" -ForegroundColor Cyan
     Write-Host "  ══════════════════════════════════════════════" -ForegroundColor Yellow
     Write-Host ""
     $choice = Read-Host "  Перезагрузить сейчас? [Y/n]"
