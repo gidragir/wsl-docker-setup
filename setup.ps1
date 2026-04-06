@@ -1,13 +1,6 @@
 ﻿#Requires -RunAsAdministrator
 
-param(
-    [string]$WslDistro = "Ubuntu",
-    [int]   $MemoryPercent = 50,
-    [int]   $CpuPercent = 50,
-    [int]   $SwapPercent = 25,
-    [string]$TaskName = "WSL2-Docker-Autostart",
-    [string]$DockerScriptUrl = "https://raw.githubusercontent.com/gidragir/wsl-docker-setup/main/docker-install.sh"
-)
+param([string]$WslDistro = "Ubuntu", [int]$MemoryPercent = 50, [int]$CpuPercent = 50, [int]$SwapPercent = 25, [string]$TaskName = "WSL2-Docker-Autostart", [string]$DockerScriptUrl = "https://raw.githubusercontent.com/gidragir/wsl-docker-setup/main/docker-install.sh")
 
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::Unicode
