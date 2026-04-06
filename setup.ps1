@@ -1,11 +1,11 @@
 ﻿#Requires -RunAsAdministrator
 
 param(
-    [string]$WslDistro       = "Ubuntu",
-    [int]   $MemoryPercent   = 50,
-    [int]   $CpuPercent      = 50,
-    [int]   $SwapPercent     = 25,
-    [string]$TaskName        = "WSL2-Docker-Autostart",
+    [string]$WslDistro = "Ubuntu",
+    [int]   $MemoryPercent = 50,
+    [int]   $CpuPercent = 50,
+    [int]   $SwapPercent = 25,
+    [string]$TaskName = "WSL2-Docker-Autostart",
     [string]$DockerScriptUrl = "https://raw.githubusercontent.com/gidragir/wsl-docker-setup/main/docker-install.sh"
 )
 
@@ -13,12 +13,14 @@ $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::Unicode
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
-function Write-Header { param($t)
+function Write-Header {
+    param($t)
     Write-Host "`n$('='*56)" -ForegroundColor Cyan
     Write-Host "  $t" -ForegroundColor Cyan
-    Write-Host "$('='*56)`n" -ForegroundColor Cyan }
+    Write-Host "$('='*56)`n" -ForegroundColor Cyan 
+}
 function Write-Step { param($t) Write-Host "  --> $t" -ForegroundColor Yellow }
-function Write-Ok   { param($t) Write-Host "  [OK] $t" -ForegroundColor Green }
+function Write-Ok { param($t) Write-Host "  [OK] $t" -ForegroundColor Green }
 function Write-Warn { param($t) Write-Host "  [!!] $t" -ForegroundColor Magenta }
 function Write-Info { param($t) Write-Host "       $t" -ForegroundColor Gray }
 function Write-Fail { param($t) Write-Host "  [XX] $t" -ForegroundColor Red; exit 1 }
@@ -62,7 +64,8 @@ function Enable-WindowsFeatures {
             $result = Enable-WindowsOptionalFeature -Online -FeatureName $feature -All -NoRestart
             if ($result.RestartNeeded) { $needsReboot = $true }
             Write-Ok "Компонент включён: $feature"
-        } else {
+        }
+        else {
             Write-Ok "Уже включён: $feature"
         }
     }
@@ -80,7 +83,7 @@ function Set-HyperVLogonRights {
     Write-Step "Настройка прав входа для Hyper-V (NT VIRTUAL MACHINE\Virtual Machines)..."
 
     $cfgFile = "$env:TEMP\secpol_wsl.inf"
-    $dbFile  = "$env:TEMP\secpol_wsl.sdb"
+    $dbFile = "$env:TEMP\secpol_wsl.sdb"
     $targetSid = "*S-1-5-83-0"
 
     try {
@@ -98,10 +101,11 @@ function Set-HyperVLogonRights {
                     $config[$idx] += ",$targetSid"
                     $changed = $true
                 }
-            } else {
+            }
+            else {
                 $privIndex = [array]::IndexOf($config, "[Privilege Rights]")
                 if ($privIndex -ge 0) {
-                    $config = $config[0..$privIndex] + "$right = $targetSid" + $config[($privIndex+1)..($config.Length-1)]
+                    $config = $config[0..$privIndex] + "$right = $targetSid" + $config[($privIndex + 1)..($config.Length - 1)]
                     $changed = $true
                 }
             }
@@ -111,10 +115,12 @@ function Set-HyperVLogonRights {
             $config | Set-Content $cfgFile -Encoding Unicode
             secedit /configure /db $dbFile /cfg $cfgFile /areas USER_RIGHTS 2>&1 | Out-Null
             Write-Ok "Права входа для Hyper-V установлены"
-        } else {
+        }
+        else {
             Write-Ok "Права входа уже настроены"
         }
-    } finally {
+    }
+    finally {
         Remove-Item $cfgFile, $dbFile -ErrorAction SilentlyContinue
     }
 }
@@ -148,7 +154,8 @@ function Install-Wsl {
     $distros2 = wsl --list --quiet 2>&1
     if ($distros2 -match $WslDistro) {
         Write-Ok "Дистрибутив '$WslDistro' установлен"
-    } else {
+    }
+    else {
         Write-Fail "Не удалось установить дистрибутив '$WslDistro'"
     }
 }
@@ -160,21 +167,21 @@ function Install-Wsl {
 function Write-WslConfig {
     Write-Step "Создание .wslconfig (лимиты ресурсов WSL2)..."
 
-    $os  = Get-CimInstance Win32_OperatingSystem
+    $os = Get-CimInstance Win32_OperatingSystem
     $cpu = Get-CimInstance Win32_Processor
 
     $totalRamGB = [math]::Round($os.TotalVisibleMemorySize / 1MB, 1)
-    $cpuCores   = ($cpu | Measure-Object -Property NumberOfLogicalProcessors -Sum).Sum
+    $cpuCores = ($cpu | Measure-Object -Property NumberOfLogicalProcessors -Sum).Sum
 
-    $wslRamGB  = [math]::Max(1, [math]::Round($totalRamGB * $MemoryPercent / 100, 0))
-    $wslCpus   = [math]::Max(1, [math]::Round($cpuCores   * $CpuPercent    / 100, 0))
-    $wslSwapGB = [math]::Max(1, [math]::Round($wslRamGB   * $SwapPercent   / 100, 0))
+    $wslRamGB = [math]::Max(1, [math]::Round($totalRamGB * $MemoryPercent / 100, 0))
+    $wslCpus = [math]::Max(1, [math]::Round($cpuCores * $CpuPercent / 100, 0))
+    $wslSwapGB = [math]::Max(1, [math]::Round($wslRamGB * $SwapPercent / 100, 0))
 
     Write-Ok "RAM:  ${totalRamGB}GB  →  WSL2: ${wslRamGB}GB"
     Write-Ok "CPU:  ${cpuCores} ядер →  WSL2: ${wslCpus} ядер"
     Write-Ok "Swap: ${wslSwapGB}GB"
 
-    $swapPath        = "$env:USERPROFILE\wsl-swap.vhdx"
+    $swapPath = "$env:USERPROFILE\wsl-swap.vhdx"
     $swapPathEscaped = $swapPath -replace '\\', '\\'
 
     $config = @"
@@ -211,7 +218,8 @@ function Install-DockerInWsl {
 
     if ($LASTEXITCODE -eq 0) {
         Write-Ok "Docker установлен успешно"
-    } else {
+    }
+    else {
         Write-Warn "Скрипт Docker завершился с ошибкой (код: $LASTEXITCODE)"
     }
 }
@@ -249,7 +257,8 @@ docker run -d \
     if ($LASTEXITCODE -eq 0) {
         Write-Ok "Portainer CE установлен и запущен"
         Write-Ok "Веб-интерфейс: http://localhost:9000"
-    } else {
+    }
+    else {
         Write-Warn "Не удалось установить Portainer."
     }
 }
@@ -261,7 +270,7 @@ docker run -d \
 function New-AutostartTask {
     Write-Step "Создание задачи автозапуска WSL+Docker в Планировщике задач..."
 
-    $scriptDir  = "$env:PROGRAMDATA\WSL-Docker"
+    $scriptDir = "$env:PROGRAMDATA\WSL-Docker"
     $scriptPath = "$scriptDir\wsl-autostart.ps1"
 
     New-Item -ItemType Directory -Path $scriptDir -Force | Out-Null
@@ -290,13 +299,13 @@ Log "=== Готово ==="
         Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
     }
 
-    $action    = New-ScheduledTaskAction -Execute "powershell.exe" `
-                     -Argument "-NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$scriptPath`""
-    $trigBoot  = New-ScheduledTaskTrigger -AtStartup
+    $action = New-ScheduledTaskAction -Execute "powershell.exe" `
+        -Argument "-NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$scriptPath`""
+    $trigBoot = New-ScheduledTaskTrigger -AtStartup
     $trigBoot.Delay = "PT15S"
     $trigLogon = New-ScheduledTaskTrigger -AtLogOn
-    $settings  = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 5) `
-                     -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -StartWhenAvailable
+    $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 5) `
+        -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -StartWhenAvailable
     $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
 
     Register-ScheduledTask -TaskName $TaskName -Action $action `
