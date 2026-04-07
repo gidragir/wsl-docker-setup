@@ -245,6 +245,7 @@ docker run -d \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v portainer_data:/data \
   portainer/portainer-ce:latest
+docker logs portainer 2>&1 | rg "Fingerprint" | awk '{print $5}' | uniq  
 "@
 
     wsl -d $WslDistro --user root --exec bash -c $portainerCmd
@@ -326,6 +327,16 @@ function Restart-Wsl {
     Write-Ok "Задача запущена"
 }
 
+function Show-Summary {
+    Write-Host "`n$($('='*56))" -ForegroundColor Green
+    Write-Host "  УСТАНОВКА ЗАВЕРШЕНА" -ForegroundColor Green
+    Write-Host "$($('='*56))`n" -ForegroundColor Green
+    Write-Host "  Портал Portainer: http://localhost:9000" -ForegroundColor Cyan
+    Write-Host "  Команда для Fingerprint (выполнить через 10 сек):" -ForegroundColor White
+    Write-Host "  wsl -d $WslDistro --user root --exec bash -c `"docker logs portainer 2>&1 | grep 'Fingerprint' | awk '{print `$5}' | uniq`"" -ForegroundColor Yellow
+    Write-Host ""
+}
+
 # =============================================================================
 #  ТОЧКА ВХОДА
 # =============================================================================
@@ -338,29 +349,29 @@ Write-Host "  +-------------------------------------------------+" -ForegroundCo
 Write-Host "  Дистрибутив: $WslDistro | RAM: ${MemoryPercent}% | CPU: ${CpuPercent}%" -ForegroundColor Gray
 Write-Host ""
 
-Write-Header "ШАГ 1/8: КОМПОНЕНТЫ WINDOWS"
+Write-Header "ШАГ 1/9: КОМПОНЕНТЫ WINDOWS"
 Enable-WindowsFeatures
 
-Write-Header "ШАГ 2/8: ПРАВА HYPER-V"
+Write-Header "ШАГ 2/9: ПРАВА HYPER-V"
 Set-HyperVLogonRights
 
-Write-Header "ШАГ 3/8: УСТАНОВКА WSL2 + $WslDistro"
+Write-Header "ШАГ 3/9: УСТАНОВКА WSL2 + $WslDistro"
 Install-Wsl
 
-Write-Header "ШАГ 4/8: КОНФИГУРАЦИЯ РЕСУРСОВ"
+Write-Header "ШАГ 4/9: КОНФИГУРАЦИЯ РЕСУРСОВ"
 Write-WslConfig
 
-Write-Header "ШАГ 5/8: УСТАНОВКА DOCKER В WSL"
+Write-Header "ШАГ 5/9: УСТАНОВКА DOCKER В WSL"
 Install-DockerInWsl
 
-Write-Header "ШАГ 6/8: УСТАНОВКА PORTAINER"
+Write-Header "ШАГ 6/9: УСТАНОВКА PORTAINER"
 Install-Portainer
 
-Write-Header "ШАГ 7/8: АВТОЗАПУСК"
+Write-Header "ШАГ 7/9: АВТОЗАПУСК"
 New-AutostartTask
 
-Write-Header "ШАГ 8/8: ПРИМЕНЕНИЕ НАСТРОЕК"
+Write-Header "ШАГ 8/9: ПРИМЕНЕНИЕ НАСТРОЕК"
 Restart-Wsl
 
-Write-Host ""
-Write-Host "УСТАНОВКА ЗАВЕРШЕНА" -ForegroundColor Green
+Write-Header "ШАГ 9/9: ВЫВОД ИНФОРМАЦИИ"
+Show-Summary
